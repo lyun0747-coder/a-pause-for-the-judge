@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>make.fun 参赛签名</title>
+<style>
+body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#111}
+h1{font-size:20px}
+h2{font-size:16px;margin-top:20px}
+pre{background:#f4f4f4;padding:12px;white-space:pre-wrap;word-break:break-all;font-size:13px;border-radius:8px}
+button{display:block;width:100%;padding:14px;font-size:17px;margin:10px 0;border:0;border-radius:10px;background:#6c5ce7;color:#fff}
+button:disabled{background:#bbb}
+textarea{width:100%;height:90px;font-size:13px}
+.note{color:#555;font-size:14px;line-height:1.6}
+.warn{color:#b00020;font-weight:bold}
+.ok{color:#0a7d2c;font-weight:bold}
+</style>
+</head>
+<body>
+<h1>make.fun 参赛签名</h1>
+<p class="note">这是给 make.fun 比赛提交作品用的签名：只证明这个钱包同意提交这件作品，<b>不转币、不花钱</b>。签名 10 分钟内有效，签完请马上把签名发给大铁盆。</p>
+<p class="note">要签的钱包：<b>Fmqy&hellip;Ychu</b><br><span id="addr"></span></p>
+<h2>要签的文字（原样，一个字都不能改）</h2>
+<pre id="msg"></pre>
+<button id="connectBtn">1. 连接 Phantom 钱包</button>
+<button id="signBtn" disabled>2. 签名</button>
+<p id="status" class="note"></p>
+<h2>签名结果（复制发给大铁盆）</h2>
+<textarea id="sig" readonly placeholder="签完名这里会出现一串字母"></textarea>
+<button id="copyBtn" disabled>复制签名</button>
+<script>
+var LINES = ["make.fun entry v1", "Domain: make.fun", "Competition: make-the-ai-judge-feel-thankful-20261127-1600", "Repo: https://github.com/lyun0747-coder/a-pause-for-the-judge", "Commit: a7f3e76178f22689d83f053bb5b42d50ca2837b3", "Transcripts: 44883a16b9b63f12bf443be087faa07bae7ed4238b42c12a3efbff7292fabb40", "Wallet: FmqyWHopHatUuUTNHg2D9XRb34AQGSdWmfwrArY1Ychu", "Nonce: 527b7268c765027f2eec94e93e0095bf", "Issued At: 2026-11-27T03:19:05.000Z"];
+var MESSAGE = LINES.join("\n");
+var WALLET = "FmqyWHopHatUuUTNHg2D9XRb34AQGSdWmfwrArY1Ychu";
+var B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function b58encode(bytes){
+  var zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  var digits = [0];
+  for (var i = zeros; i < bytes.length; i++){
+    var carry = bytes[i];
+    for (var j = 0; j < digits.length; j++){ carry += digits[j] * 256; digits[j] = carry % 58; carry = Math.floor(carry / 58); }
+    while (carry > 0){ digits.push(carry % 58); carry = Math.floor(carry / 58); }
+  }
+  var out = "";
+  for (var k = 0; k < zeros; k++) out += "1";
+  for (var k = digits.length - 1; k >= 0; k--) out += B58[digits[k]];
+  return out;
+}
+document.getElementById("msg").textContent = MESSAGE;
+var provider = null;
+function getProvider(){
+  if (window.phantom && window.phantom.solana && window.phantom.solana.isPhantom) return window.phantom.solana;
+  return null;
+}
+document.getElementById("connectBtn").onclick = async function(){
+  var st = document.getElementById("status");
+  var p = getProvider();
+  if(!p){ st.innerHTML = '<span class="warn">没找到 Phantom 钱包。请在手机 Phantom App 里点底部的浏览器（指南针图标），再打开这个页面。</span>'; return; }
+  try{
+    var r = await p.connect();
+    provider = p;
+    var addr = r.publicKey.toString();
+    document.getElementById("addr").textContent = "已连接：" + addr;
+    if(addr !== WALLET){
+      st.innerHTML = '<span class="warn">你现在连的是另一个钱包，不是绑在账号上的 Fmqy…Ychu。请在 Phantom 里切换到 Fmqy…Ychu 那个钱包再连。</span>';
+      document.getElementById("signBtn").disabled = true;
+    } else {
+      st.innerHTML = '<span class="ok">钱包对上了，可以签名。</span>';
+      document.getElementById("signBtn").disabled = false;
+    }
+  }catch(e){ st.textContent = "连接失败：" + (e && e.message ? e.message : e); }
+};
+document.getElementById("signBtn").onclick = async function(){
+  var st = document.getElementById("status");
+  try{
+    var encoded = new TextEncoder().encode(MESSAGE);
+    var res = await provider.signMessage(encoded, "utf8");
+    var sigBytes = res.signature || res;
+    if(!(sigBytes instanceof Uint8Array)) sigBytes = new Uint8Array(sigBytes);
+    var sig = b58encode(sigBytes);
+    document.getElementById("sig").value = sig;
+    document.getElementById("copyBtn").disabled = false;
+    st.innerHTML = '<span class="ok">签好了！请复制下面这串签名发给大铁盆，10 分钟内要用。</span>';
+  }catch(e){ st.textContent = "签名失败或取消了：" + (e && e.message ? e.message : e) + "。可以再点一次。"; }
+};
+document.getElementById("copyBtn").onclick = async function(){
+  var t = document.getElementById("sig");
+  try{ await navigator.clipboard.writeText(t.value); }
+  catch(e){ t.select(); document.execCommand("copy"); }
+  document.getElementById("status").textContent = "已复制，发给大铁盆就行。";
+};
+</script>
+</body>
+</html>
